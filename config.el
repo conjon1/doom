@@ -1,8 +1,4 @@
-<<<<<<< variant A
-;; $DOOMDIR/config.el -*- lexical-binding: t; -*-
->>>>>>> variant B
 ;;; $DOOMDIR/config.el -*- lexical-binding: t; -*-
-======= end
 
 ;; Place your private configuration here! Remember, you do not need to run 'doom
 ;; sync' after modifying this file!
@@ -10,17 +6,14 @@
 
 ;; Some functionality uses this to identify you, e.g. GPG configuration, email
 ;; clients, file templates and snippets. It is optional.
-<<<<<<< variant A
 (setq user-full-name "Connal McInnis"
        User-mail-address "connal.jmcinnis@proton.me")
 
 (load! "custom/org-roam-config.el")
 (load! "custom/elfeed-config.el")
 (load! "custom/hydraOrg.el")
->>>>>>> variant B
 ;; (setq user-full-name "John Doe"
 ;;       user-mail-address "john@doe.com")
-======= end
 
 ;; Doom exposes five (optional) variables for controlling fonts in Doom:
 ;;
@@ -33,10 +26,7 @@
 ;;
 ;; See 'C-h v doom-font' for documentation and more examples of what they
 ;; accept. For example:
-<<<<<<< variant A
->>>>>>> variant B
-(doom! :theme 'doom-dracula)
-======= end
+;;(doom! :theme 'doom-dracula)
 
 ;; Load the font AFTER the theme is loaded to prevent it from being overridden
 (after! doom-themes (setq doom-font (font-spec :family "JetBrainsMono Nerd Font" :size 13)))
@@ -56,13 +46,10 @@
 ;; There are two ways to load a theme. Both assume the theme is installed and
 ;; available. You can either set `doom-theme' or manually load a theme with the
 ;; `load-theme' function. This is the default:
-<<<<<<< variant A
 (setq doom-theme 'doom-oceanic-next)
 (savehist-mode 1)
->>>>>>> variant B
 ;;(setq doom-theme 'doom-one)
 
-======= end
 ;; This determines the style of line numbers in effect. If set to `nil', line
 ;; numbers are disabled. For relative line numbers, set this to `relative'.
 (setq display-line-numbers-type 'relative)
@@ -70,12 +57,9 @@
 ;; If you use `org' and don't want your org files in the default location below,
 ;; change `org-directory'. It must be set before org loads!
 (setq org-directory "~/NoteSphere/")
-<<<<<<< variant A
 (setq org-log-done 'time)
->>>>>>> variant B
 
 
-======= end
 ;; Whenever you reconfigure a package, make sure to wrap your config in an
 ;; `after!' block, otherwise Doom's defaults may override your settings. E.g.
 ;;
