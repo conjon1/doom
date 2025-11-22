@@ -10,8 +10,7 @@
 (load! "custom/elfeed-config.el")
 (load! "custom/hydraOrg.el")
 (load! "lang/go.el")
-;; Doom exposes five (optional) variables for controlling fonts in Doom:
-;;
+(load! "custom/treesit.el")
 ;; - `doom-font' -- the primary font to use
 ;; - `doom-variable-pitch-font' -- a non-monospace font (where applicable)
 ;; - `doom-big-font' -- used for `doom-big-font-mode'; use this for

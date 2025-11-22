@@ -4,9 +4,14 @@
   (setq org-roam-node-display-template (concat "${title:*} " (propertize "${tags:10}" 'face 'org-tag)))
   (org-roam-db-autosync-mode 1)
   (setq org-roam-completion-everywhere t)
-
 (setq org-roam-capture-templates
       '(("n" "Note")
+        ("nd" "Default Note" plain
+         "%?"
+         :if-new (file+head "%(expand-file-name (format \"notes/%s.org\" (org-id-new)) org-roam-directory)"
+                          "#+title: ${title}\n#+date: %U\n#+filetags: \n\n")
+         :unnarrowed t)
+
         ("nd" "Default Note" plain
          "%?"
          :if-new (file+head "%(expand-file-name (format \"notes/%s.org\" (org-id-new)) org-roam-directory)"
@@ -18,7 +23,7 @@
          :if-new (file+head "%(expand-file-name (format \"notes/%s.org\" (org-id-new)) org-roam-directory)"
                           "%(let* (
                                  (title (read-string \"Title: \"))
-                                 (lang (read-string \"Language (e.g., 'go', 'python'): \"))
+                                 (lang (read-string \"Language (e.g., 'go', 'python', 'C'): \"))
 
                                  (project-dir (expand-file-name \"projects\" org-roam-directory))
 
@@ -114,4 +119,13 @@
          :unnarrowed t)
         ))
 )
+
+(use-package! org-roam-ui
+  :after org-roam
+  :config
+  (setq org-roam-ui-sync-theme t
+        org-roam-ui-follow t
+        org-roam-ui-update-on-save t
+        org-roam-ui-open-on-start nil))
+
 (provide 'org-roam-config)
