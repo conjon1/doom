@@ -3,71 +3,70 @@
 (use-package! denote
   :hook (dired-mode . denote-dired-mode)
   :config
-  (setq denote-directory (expand-file-name "~/MonolithicNotes/"))
-  (setq denote-infer-keywords t)
-  (setq denote-known-keywords nil)
-  (setq denote-prompts '(title keywords))
+  ;; --- 1. CORE SETTINGS ---
+  (setq denote-directory (expand-file-name "denote/" org-directory))
 
-  ;; KEYBINDINGS
+  ;; Ensure we prompt for subdirectory to keep things organized
+  (setq denote-prompts '(title keywords subdirectory template))
+
+  ;; --- 2. TEMPLATE SYSTEM (READ FROM FILES) ---
+  (defun my/read-template-file (filename)
+    "Read the content of FILENAME in the org-directory/templates folder."
+    (let ((filepath (expand-file-name (concat "templates/" filename) org-directory)))
+      (if (file-exists-p filepath)
+          (with-temp-buffer
+            (insert-file-contents filepath)
+            (buffer-string))
+        (message "Template file not found: %s" filepath)
+        "")))
+
+  ;; Define templates by reading external files
+  ;; Note: We use backtick (`) and comma (,) to evaluate the function call immediately
+  (setq denote-templates
+        `((company . ,(my/read-template-file "company-profile.org"))
+          (contact . ,(my/read-template-file "contact.org"))
+          (journal . "* Daily Log\n\n")))
+
+  ;; --- 3. WORKFLOW: AUTOMATIC NOTE LINKING ---
+  (defun my/job-create-company-note ()
+    "Turn the current line's company name into a linked Denote note in the 'companies' subdir."
+    (interactive)
+    (let* ((line-text (thing-at-point 'line t))
+           ;; Extract text between ** ** or just clean the line
+           (clean-name (if (string-match "\\*\\*\\(.*?\\)\\*\\*" line-text)
+                           (match-string 1 line-text)
+                         (string-trim (replace-regexp-in-string "^\s*-\s*\\[.\\]\s*" "" line-text))))
+           ;; Define the new file attributes
+           (title clean-name)
+           (keywords '("jobsearch" "target"))
+           (subdir "companies") ;; Force into the 'companies' folder
+           (template 'company)) ;; Use the company template
+
+      ;; Create the note using Denote's internal API
+      (denote title keywords 'org subdir template)
+
+      ;; Save the new note buffer so we can link to it
+      (save-buffer)
+
+      ;; Create the link string
+      (let ((new-link (format "[[denote:%s][%s]]"
+                              (denote-retrieve-filename-identifier (buffer-file-name))
+                              title)))
+
+        ;; Go back to the original buffer
+        (other-window 1)
+        ;; Replace the company name with the Org Link
+        (beginning-of-line)
+        (if (search-forward title (line-end-position) t)
+            (replace-match new-link))
+
+        ;; Switch back to the new note to start editing
+        (other-window 1))))
+
+  ;; --- 4. KEYBINDINGS ---
   (map! :leader
         :prefix "n"
-        "n" #'org-capture              ; SPC n n -> Main Capture Menu
-        "N" #'denote                   ; SPC n N -> Create separate file (Old way)
-        "x" #'my/denote-extract-subtree
-        "r" #'denote-rename-file
-        "l" #'denote-link-or-create
-        "s" #'consult-grep))
-
-;; --- STATE MANAGEMENT (Dashboard.org) ---
-(after! org
-  ;; Agenda looks at your "State" file, not your notes
-  (setq org-agenda-files '("~/MonolithicNotes/Dashboard.org"))
-
-  (setq org-todo-keywords
-        '((sequence "TODO(t)" "NEXT(n)" "PROJ(p)" "WAIT(w)" "|" "DONE(d)" "CANCELLED(c)"))))
-
-(after! elfeed
-  ;; Elfeed looks for feeds in your Dashboard
-  (setq rmh-elfeed-org-files (list "~/MonolithicNotes/Dashboard.org")))
-
-;; --- CUSTOM TOOLS ---
-(defun my/denote-extract-subtree ()
-  "Copy subtree to new file (Fork)."
-  (interactive)
-  (unless (org-at-heading-p) (user-error "Not at a heading!"))
-  (let* ((heading-text (org-get-heading t t t t))
-         (tags (org-get-tags))
-         (title (read-string "New File Title: " heading-text)))
-    (org-copy-subtree)
-    (denote title tags)
-    (goto-char (point-max)) (insert "\n") (org-yank)
-    (save-buffer)
-    (message "Copied '%s' to new note!" title)))
-
-(defun my/select-denote-tags ()
-  (let ((tags (completing-read-multiple
-               "Select Tags: " (denote-keywords))))
-    (if tags (format ":%s:" (mapconcat #'identity tags ":")) "")))
-
-;; --- CAPTURE TEMPLATES ---
-(after! org
-  (setq org-capture-templates
-        (append org-capture-templates
-                '(
-                  ;; 1. KNOWLEDGE -> Monolith.org
-                  ("n" "Note (Knowledge)" entry
-                   (file+headline "~/MonolithicNotes/Monolith.org" "Inbox")
-                   "* %^{Title} %(my/select-denote-tags)\n:PROPERTIES:\n:Created: %U\n:END:\n%?"
-                   :prepend t :empty-lines 1)
-
-                  ;; 2. ACTION -> Dashboard.org
-                  ("t" "Task / Todo" entry
-                   (file+headline "~/MonolithicNotes/Dashboard.org" "Inbox")
-                   "* TODO %^{Task} \nSCHEDULED: %^t\n:PROPERTIES:\n:Created: %U\n:END:\n%?"
-                   :prepend t :empty-lines 1)
-
-                  ("p" "Project Log" entry
-                   (file+headline "~/MonolithicNotes/Dashboard.org" "Active Projects")
-                   "* %U %^{Update} :log:\n%?"
-                   :prepend t :empty-lines 1)
-                  ))))
+        "n" #'denote                   ; Create note (standard)
+        "o" #'denote-open-or-create    ; Search or create
+        "r" #'denote-rename-file       ; Rename current file
+        "g" #'my/job-create-company-note)) ; "Generate" Company Note
