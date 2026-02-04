@@ -3,70 +3,96 @@
 (use-package! denote
   :hook (dired-mode . denote-dired-mode)
   :config
-  ;; --- 1. CORE SETTINGS ---
   (setq denote-directory (expand-file-name "denote/" org-directory))
 
-  ;; Ensure we prompt for subdirectory to keep things organized
-  (setq denote-prompts '(title keywords subdirectory template))
+  ;; --- GLOBAL SETTINGS ---
+  (setq denote-prompts '(title keywords))
+  (setq denote-infer-keywords t)
+  (setq denote-sort-keywords t)
 
-  ;; --- 2. TEMPLATE SYSTEM (READ FROM FILES) ---
-  (defun my/read-template-file (filename)
-    "Read the content of FILENAME in the org-directory/templates folder."
-    (let ((filepath (expand-file-name (concat "templates/" filename) org-directory)))
-      (if (file-exists-p filepath)
-          (with-temp-buffer
-            (insert-file-contents filepath)
-            (buffer-string))
-        (message "Template file not found: %s" filepath)
+  ;; --- TEMPLATES ---
+  (defun my/read-template (file)
+    (let ((path (expand-file-name (concat "templates/" file) org-directory)))
+      (if (file-exists-p path)
+          (with-temp-buffer (insert-file-contents path) (buffer-string))
         "")))
 
-  ;; Define templates by reading external files
-  ;; Note: We use backtick (`) and comma (,) to evaluate the function call immediately
   (setq denote-templates
-        `((company . ,(my/read-template-file "company-profile.org"))
-          (contact . ,(my/read-template-file "contact.org"))
-          (journal . "* Daily Log\n\n")))
+        `((journal . ,(my/read-template "journal.org"))
+          (contact . ,(my/read-template "contact.org"))
+          (programming . ,(my/read-template "programming.org"))))
 
-  ;; --- 3. WORKFLOW: AUTOMATIC NOTE LINKING ---
-  (defun my/job-create-company-note ()
-    "Turn the current line's company name into a linked Denote note in the 'companies' subdir."
+  ;; --- DYNAMIC HELPER (OPTIMIZED RIPGREP) ---
+  (defun my/get-prop-values (prop)
+    "Use Ripgrep to extract unique values for a specific Org property."
+    (let ((cmd (format "rg -INoh \"^\\s*:%s:\\s+(.+)\" -r '$1' %s | sort | uniq"
+                       prop denote-directory)))
+      (split-string (shell-command-to-string cmd) "\n" t)))
+
+  ;; --- CAPTURE WORKFLOWS ---
+
+  ;; 1. QUICK NOTE (Title Only)
+  (defun my/create-quick-note ()
     (interactive)
-    (let* ((line-text (thing-at-point 'line t))
-           ;; Extract text between ** ** or just clean the line
-           (clean-name (if (string-match "\\*\\*\\(.*?\\)\\*\\*" line-text)
-                           (match-string 1 line-text)
-                         (string-trim (replace-regexp-in-string "^\s*-\s*\\[.\\]\s*" "" line-text))))
-           ;; Define the new file attributes
-           (title clean-name)
-           (keywords '("jobsearch" "target"))
-           (subdir "companies") ;; Force into the 'companies' folder
-           (template 'company)) ;; Use the company template
+    (let ((denote-prompts '(title)))
+      (call-interactively #'denote)))
 
-      ;; Create the note using Denote's internal API
-      (denote title keywords 'org subdir template)
+  ;; 2. Programming NOTE (Dynamic History)
 
-      ;; Save the new note buffer so we can link to it
-      (save-buffer)
+  (defun my/create-programming-note ()
+    (interactive)
+    (let* ((title (read-string "Topic: "))
+          (langs (or (my/get-prop-values "Language") '("Go" "Emacs Lisp" "Bash")))
+          (types (or (my/get-prop-values "Type") '("Snippet" "Concept" "Config")))
+          (lang (completing-read "Language: " langs nil nil))
+          (type (completing-read "Type: " types nil nil))
+          ;; We pre-format the keywords as a list to avoid the extra prompt
+          (keywords (list "dev" (downcase lang) (downcase type))))
 
-      ;; Create the link string
-      (let ((new-link (format "[[denote:%s][%s]]"
-                              (denote-retrieve-filename-identifier (buffer-file-name))
-                              title)))
+      ;; 1. Create the note and capture the buffer it returns
+      (let ((new-buffer (denote title keywords 'org nil nil 'programming)))
 
-        ;; Go back to the original buffer
-        (other-window 1)
-        ;; Replace the company name with the Org Link
-        (beginning-of-line)
-        (if (search-forward title (line-end-position) t)
-            (replace-match new-link))
+        ;; 2. Perform replacements inside that specific buffer
+        (with-current-buffer new-buffer
+          (save-excursion
+            (goto-char (point-min))
+            ;; Use 'fixedcase' in replace-match to prevent accidental capitalization
+            (while (search-forward "{{LANG}}" nil t)
+              (replace-match lang t t))
+            (while (search-forward "{{TYPE}}" nil t)
+              (replace-match type t t))
+            (while (search-forward "{{LANG_SRC}}" nil t)
+              (let ((src-lang (if (string= lang "Emacs Lisp") "elisp" (downcase lang))))
+                (replace-match src-lang t t))))
 
-        ;; Switch back to the new note to start editing
-        (other-window 1))))
+        ;; 3. Optional: Save the buffer after modification
+        (save-buffer)))))
 
-  ;; --- 4. KEYBINDINGS ---
+
+
+  ;; 3. JOURNAL ENTRY
+  (defun my/create-journal-entry ()
+    (interactive)
+    (let ((title (read-string "Journal Title: ")))
+      ;; FIXED: Added 'nil' for the DATE argument.
+      ;; Arg 5 is DATE (nil = now), Arg 6 is TEMPLATE ('journal)
+      (denote title '("journal") 'org "journal" nil 'journal)))
+
+  ;; 4. CONTACT NOTE
+  (defun my/create-contact ()
+    (interactive)
+    (let ((name (read-string "Contact Name: ")))
+      ;; FIXED: Added 'nil' for the DATE argument here as well.
+      (denote name (denote-keywords-prompt '("network" "contact")) 'org "contacts" nil 'contact)
+      (save-excursion
+        (goto-char (point-min))
+        (while (re-search-forward "{{.*?}}" nil t) (replace-match "")))))
+
+  ;; Keybindings
   (map! :leader
-        :prefix "n"
-        "n" #'denote                   ; Create note (standard)
-        "o" #'denote-open-or-create    ; Search or create
-        "r" #'denote-rename-file       ; Rename current file
-        "g" #'my/job-create-company-note)) ; "Generate" Company Note
+        "n" #'hydra-denote/body))
+;; Bind C-c C-c ONLY in Denote files
+(add-hook 'org-mode-hook
+          (lambda ()
+            (when (denote-file-has-identifier-p (buffer-file-name))
+              (local-set-key (kbd "C-c C-c") #'my/save-and-close-window))))

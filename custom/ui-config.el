@@ -25,14 +25,17 @@
             'org-code 'org-verbatim))
 
 ;; --- Clean UI (Hide Markers) ---
+;; --- Clean UI (Hide Markers) ---
 (use-package! org-appear
   :hook (org-mode . org-appear-mode)
   :config
+  ;; Hides the markers (*, /, ~, =) globally
+  (setq org-hide-emphasis-markers t)
+
+  ;; These settings make them re-appear when you put your cursor on them
   (setq org-appear-autoemphasis t
         org-appear-autosubmarkers t
         org-appear-autolinks t))
-
-
 ;; --- Bullet Points  ---
 (use-package! org-superstar
   :hook (org-mode . org-superstar-mode)

@@ -1,43 +1,43 @@
-;;; custom/hydraKeys.el --- Job Search Dashboard -*- lexical-binding: t; -*-
+;;; Custom hydraKeys.el -*- lexical-binding: t; -*-
 
 (require 'hydra)
 (require 'denote)
 (require 'consult)
 
-(defun my/search-companies ()
+;; --- Helpers ---
+(defun my/search-all () (interactive) (consult-ripgrep denote-directory ""))
+
+(defun my/run-in-split (command)
+  "Splits the window to the right and runs the command in the new window."
   (interactive)
-  ;; Search strictly inside the 'companies' subdirectory
-  (consult-ripgrep (expand-file-name "companies" denote-directory) ""))
+  (select-window (split-window-right))
+  (balance-windows)
+  (call-interactively command))
 
-(defun my/search-contacts ()
+(defun my/save-and-close-window ()
   (interactive)
-  ;; Search strictly inside the 'contacts' subdirectory
-  (consult-ripgrep (expand-file-name "contacts" denote-directory) ""))
+  (save-buffer)
+  (delete-window))
 
-(defhydra hydra-jobs (:color blue :hint nil)
-  "
-  ^Job Search Command Center^   ^Status Filters^           ^Actions^
-  -------------------------------------------------------------------------
-  _h_: Open Charlotte Hub       _i_: Interviewing          _n_: New Standard Note
-  _c_: Search Companies         _a_: Active Applications   _g_: Generate Company Note
-  _p_: Search Contacts          _o_: Offers                _r_: Rename File
-  _d_: Open Denote Dired        _R_: Rejections            _q_: Quit
-  "
-  ("h" (find-file "~/TheOrg/projects/JobSearch/CharlotteNC.org"))
-  ("c" my/search-companies)
-  ("p" my/search-contacts)
-  ("d" (dired denote-directory))
+(defhydra hydra-denote (:color blue :columns 3)
+  "Denote Menu"
+  ;; Column 1: Capture (Wrapped in split)
+  ("n" (my/run-in-split #'my/create-quick-note) "Quick Note")
+  ("N" (my/run-in-split #'denote) "Note + Tags")
+  ("p" (my/run-in-split #'my/create-programming-note) "Code Note")
+  ("j" (my/run-in-split #'my/create-journal-entry) "Journal Entry")
+  ("C" (my/run-in-split #'my/create-contact) "Contact Note")
 
-  ("i" (consult-denote "interviewing"))
-  ("a" (consult-denote "applied"))
-  ("o" (consult-denote "offer"))
-  ("R" (consult-denote "rejected"))
+  ;; Column 2: Search
+  ("f" consult-denote "Find Title")
+  ("s" my/search-all "Search Text")
+  ("d" (dired denote-directory) "Open Dired")
 
-  ("n" denote)
-  ("g" my/job-create-company-note)
-  ("r" denote-rename-file)
-  ("q" nil))
-
-(map! :leader "j" #'hydra-jobs/body)
+  ;; Column 3: Actions
+  ("b" denote-backlinks "Backlinks")
+  ("r" denote-rename-file "Rename")
+  ("t" denote-rename-file-keywords "Manage Tags")
+  ("l" denote-link "Insert Link")
+  ("q" nil "Quit" :exit t))
 
 (provide 'hydraKeys)
