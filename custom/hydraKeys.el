@@ -8,7 +8,7 @@
 (defun my/search-all () (interactive) (consult-ripgrep denote-directory ""))
 
 (defun my/run-in-split (command)
-  "Splits the window to the right and runs the command in the new window."
+  "Splits the window to the right and runs the command."
   (interactive)
   (select-window (split-window-right))
   (balance-windows)
@@ -21,10 +21,10 @@
 
 (defhydra hydra-denote (:color blue :columns 3)
   "Denote Menu"
-  ;; Column 1: Capture (Wrapped in split)
+  ;; Column 1: Capture
   ("n" (my/run-in-split #'my/create-quick-note) "Quick Note")
   ("N" (my/run-in-split #'denote) "Note + Tags")
-  ("p" (my/run-in-split #'my/create-programming-note) "Code Note")
+  ("p" my/create-programming-note "Code Note") ;; Removed split wrapper for reliability
   ("j" (my/run-in-split #'my/create-journal-entry) "Journal Entry")
   ("C" (my/run-in-split #'my/create-contact) "Contact Note")
 
